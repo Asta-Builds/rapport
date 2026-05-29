@@ -1,0 +1,51 @@
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{setspace}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{algorithm2e}
+\usepackage{newtxtext,newtxmath} % Times New Roman
+\usepackage{titlesec}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, shadows, fit}
+
+\geometry{margin=2.5cm}
+\onehalfspacing % Interligne 1,5
+
+% --- Configuration des polices et tailles ---
+% Texte normal : 12pt Times New Roman (défini par \documentclass[12pt])
+
+% Titres des chapitres : Gras, Centré, 18pt
+\titleformat{\chapter}[display]
+  {\centering\normalfont\fontsize{18}{22}\selectfont\bfseries}
+  {\chaptertitlename\ \thechapter}
+  {10pt}
+  {\fontsize{18}{22}\selectfont}
+
+% Titres des sections (Paragraphes) : Gras, 18pt
+\titleformat{\section}
+  {\normalfont\fontsize{18}{22}\selectfont\bfseries}
+  {\thesection}
+  {1em}
+  {}
+
+% Titres des sous-sections (Sous-paragraphes) : Normal, 12pt
+\titleformat{\subsection}
+  {\normalfont\fontsize{12}{14}\selectfont\mdseries}
+  {\thesubsection}
+  {1em}
+  {}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    citecolor=black,
+}

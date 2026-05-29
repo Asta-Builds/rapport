@@ -1,0 +1,71 @@
+\chapter{Contexte et Problématique}
+\label{chap:contexte}
+
+L'objectif de ce chapitre est de présenter l'environnement dans lequel s'inscrit le projet, d'analyser l'existant et de mettre en évidence les problématiques qui justifient la mise en place du Provisioning Hub.
+
+\section{Présentation de l'Environnement}
+\label{sec:environnement}
+
+\subsection{Présentation de l'organisation}
+\textit{(Section à compléter avec les informations spécifiques sur l'entreprise)}
+
+\subsection{Enjeux du provisionnement des données RH}
+Le provisionnement des données RH consiste en la synchronisation automatisée des informations des collaborateurs depuis un système source vers divers systèmes cibles. Cette opération revêt un caractère critique pour garantir l'opérationnalité des accès (LDAP, Jira, etc.) dès l'intégration d'un collaborateur ou lors de toute évolution de son profil professionnel.
+
+\section{Analyse de l'Existant}
+\label{sec:existant}
+
+\subsection{Architecture de l'écosystème legacy}
+L'infrastructure s'appuyait jusqu'alors sur un écosystème fragmenté, composé de plusieurs briques logicielles legacy, notamment \texttt{ms-hraccess}, \texttt{corelistener} et divers modules \texttt{MYI-HRA-*}. Cet ensemble avait pour mission d'assurer la cohérence et la synchronisation des données RH vers les systèmes cibles.
+
+\subsection{Étude des flux de synchronisation}
+Les données étaient acheminées vers des destinations variées, telles que l'Active Directory (LDAP), Jira et d'autres outils de gestion, via des pipelines de synchronisation rigides et fortement couplés.
+
+\section{Analyse Critique et Problématique}
+\label{sec:problematique}
+
+L'analyse de l'architecture legacy a permis d'identifier plusieurs points de douleur critiques, entravant l'agilité et la fiabilité du système.
+
+\subsection{Goulots d'étranglement du cycle de développement}
+Toute modification d'une règle métier ou l'intégration d'une nouvelle destination imposait le développement de code Java, suivi de phases de tests manuels et d'un cycle de déploiement complet. Ce processus générait un délai de mise en œuvre important, limitant la réactivité face aux exigences métier.
+
+\subsection{Fragmentation des données et déficit de traçabilité}
+L'historique des flux de données était dispersé au sein de plus de dix bases de données distinctes. Cette fragmentation rendait la traçabilité du parcours de synchronisation d'un collaborateur particulièrement complexe, compliquant ainsi les opérations de débogage et d'audit.
+
+\subsection{Rigidité opérationnelle et limites de la gestion des échecs}
+L'absence de mécanismes de récupération automatisés signifiait qu'une tentative de synchronisation échouée ne pouvait être relancée sans une intervention directe d'un administrateur de base de données (DBA). Cette dépendance opérationnelle induisait des délais de résolution prolongés.
+
+\subsection{Dette technique et risques liés à la maintenance}
+Le couplage fort entre les composants, associé à une duplication significative du code à travers les différents projets legacy, augmentait substantiellement le risque de régressions lors de chaque mise à jour.
+
+\section{Solution Proposée : Le Provisioning Hub}
+\label{sec:solution}
+
+Afin de pallier ces insuffisances, le \textbf{Provisioning Hub} a été conçu pour transformer un processus centré sur le développement logiciel en une plateforme déclarative.
+
+\subsection{Vision globale et objectifs de transformation}
+L'ambition est de centraliser et de simplifier le provisionnement en substituant le développement spécifique par une approche basée sur la configuration.
+
+\subsection{Paradigme déclaratif : Primauté de la configuration sur le codage}
+L'administration des sources, des destinations et des workflows s'effectue désormais via une interface utilisateur dédiée. Le système repose sur un pipeline déclaratif structuré comme suit : 
+\begin{center}
+    \textbf{Fetch $\rightarrow$ Filter $\rightarrow$ Transform $\rightarrow$ Send}
+\end{center}
+Dès lors, l'ajout de nouvelles cibles s'effectue par simple configuration, éliminant ainsi la nécessité de nouveaux déploiements.
+
+\subsection{Flexibilité métier via le moteur de règles (SpEL)}
+L'intégration du moteur de règles SpEL (\textit{Spring Expression Language}) permet la mise à jour des logiques métier complexes en temps réel. Il est ainsi possible de définir des conditions dynamiques pour autoriser ou bloquer des enregistrements sans interruption de service.
+
+\subsection{Traçabilité unifiée et vision « Employee 360 »}
+Chaque tentative de synchronisation est désormais persistée sous la forme d'un « Exchange ». La vue \textbf{Hub 360 (ou Employee 360)} agrège l'ensemble de ces événements, constituant ainsi une source unique de vérité pour l'audit et le diagnostic.
+
+\subsection{Stratégies de résilience}
+Le Provisioning Hub introduit des mécanismes garantissant la robustesse du système :
+\begin{itemize}
+    \item \textbf{Mécanisme de Replay :} Les échanges ayant échoué peuvent être redéclenchés manuellement via l'interface.
+    \item \textbf{Save-First Pattern :} L'état de la donnée est persisté avant tout appel réseau, prévenant toute perte d'information en cas d'incident technique.
+    \item \textbf{DLQ (Dead Letter Queue) :} Les échecs permanents sont systématiquement isolés dans une file d'attente pour analyse ultérieure.
+\end{itemize}
+
+\subsection*{Conclusion partielle}
+L'analyse de l'existant a mis en évidence une architecture rigide et fragmentée, source d'inefficacités opérationnelles et de risques techniques. Le Provisioning Hub apporte une réponse structurée en introduisant un paradigme déclaratif et des mécanismes de résilience avancés. La section suivante détaillera l'analyse et la conception technique de cette solution.

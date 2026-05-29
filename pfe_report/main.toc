@@ -1,0 +1,68 @@
+\contentsline {chapter}{Dédicace}{i}{chapter*.1}%
+\contentsline {chapter}{Remerciements}{ii}{chapter*.2}%
+\contentsline {chapter}{Abstract}{iii}{chapter*.3}%
+\contentsline {chapter}{Résumé}{iv}{chapter*.4}%
+\contentsline {chapter}{Glossaire}{v}{chapter*.5}%
+\contentsline {chapter}{Table des figures}{vi}{chapter*.6}%
+\contentsline {chapter}{Liste des tableaux}{vii}{chapter*.7}%
+\babel@toc {french}{}\relax 
+\contentsline {chapter}{Introduction Générale}{1}{chapter*.8}%
+\contentsline {chapter}{\numberline {1}Analyse du Contexte et Problématique}{2}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Introduction}{2}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Étude de l'existant (Systèmes Legacy)}{2}{section.1.2}%
+\contentsline {subsection}{\numberline {1.2.1}Description des composants}{2}{subsection.1.2.1}%
+\contentsline {subsection}{\numberline {1.2.2}Analyse des flux de données actuels}{3}{subsection.1.2.2}%
+\contentsline {section}{\numberline {1.3}Problématique et Défis}{3}{section.1.3}%
+\contentsline {subsection}{\numberline {1.3.1}Goulots d'étranglement techniques}{3}{subsection.1.3.1}%
+\contentsline {subsection}{\numberline {1.3.2}Défis opérationnels}{3}{subsection.1.3.2}%
+\contentsline {section}{\numberline {1.4}Objectifs du Projet}{4}{section.1.4}%
+\contentsline {subsection}{\numberline {1.4.1}Objectifs Métiers}{4}{subsection.1.4.1}%
+\contentsline {subsection}{\numberline {1.4.2}Objectifs Techniques}{4}{subsection.1.4.2}%
+\contentsline {subsection}{\numberline {1.4.3}Synthèse comparative}{4}{subsection.1.4.3}%
+\contentsline {section}{\numberline {1.5}Conclusion}{5}{section.1.5}%
+\contentsline {chapter}{\numberline {2}Conception et Architecture du Système}{6}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Introduction}{6}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Architecture Globale}{6}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Choix du paradigme architectural}{6}{subsection.2.2.1}%
+\contentsline {subsubsection}{L'Architecture Hexagonale (Ports and Adapters)}{6}{subsection.2.2.1}%
+\contentsline {subsubsection}{Architecture Orientée Événements (EDA)}{7}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Le Pipeline Déclaratif}{7}{subsection.2.2.2}%
+\contentsline {section}{\numberline {2.3}Conception du Moteur de Règles (Policy Engine)}{7}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}L'utilisation de SpEL (Spring Expression Language)}{7}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}Typologie des politiques}{8}{subsection.2.3.2}%
+\contentsline {section}{\numberline {2.4}Modélisation des Données}{8}{section.2.4}%
+\contentsline {subsection}{\numberline {2.4.1}Entités clés et relations}{8}{subsection.2.4.1}%
+\contentsline {subsection}{\numberline {2.4.2}Stratégie de persistance avec PostgreSQL 17}{8}{subsection.2.4.2}%
+\contentsline {section}{\numberline {2.5}Conclusion}{8}{section.2.5}%
+\contentsline {chapter}{\numberline {3}Réalisation Technique et Implémentation}{9}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Introduction}{9}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Environnement de Développement}{9}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Stack Technique et Justifications}{9}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Orchestration et CI/CD}{10}{subsection.3.2.2}%
+\contentsline {section}{\numberline {3.3}Implémentation des Fonctionnalités Clés}{10}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Le pattern "Save-First" et la traçabilité absolue}{10}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Gestion de la résilience et des erreurs}{10}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Optimisation des performances et résolution du problème N+1}{11}{subsection.3.3.3}%
+\contentsline {section}{\numberline {3.4}Sécurité et Conformité}{11}{section.3.4}%
+\contentsline {subsection}{\numberline {3.4.1}Chiffrement des secrets et données sensibles}{11}{subsection.3.4.1}%
+\contentsline {subsection}{\numberline {3.4.2}Gestion des accès et authentification}{11}{subsection.3.4.2}%
+\contentsline {section}{\numberline {3.5}Conclusion}{11}{section.3.5}%
+\contentsline {chapter}{\numberline {4}Tests, Validation et Résultats}{12}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Introduction}{12}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Stratégie de Tests}{12}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Tests Unitaires et d'Intégration}{12}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Tests de bout en bout (E2E) et Automatisation}{12}{subsection.4.2.2}%
+\contentsline {section}{\numberline {4.3}Analyse des Résultats}{13}{section.4.3}%
+\contentsline {subsection}{\numberline {4.3.1}Validation de la matrice de tests}{13}{subsection.4.3.1}%
+\contentsline {subsection}{\numberline {4.3.2}Mesure des gains de performance et impact métier}{13}{subsection.4.3.2}%
+\contentsline {section}{\numberline {4.4}Présentation de l'Interface Administrateur}{13}{section.4.4}%
+\contentsline {subsection}{\numberline {4.4.1}Dashboard et Monitoring}{13}{subsection.4.4.1}%
+\contentsline {subsection}{\numberline {4.4.2}Vue Employé 360 et Historique des échanges}{14}{subsection.4.4.2}%
+\contentsline {section}{\numberline {4.5}Conclusion}{14}{section.4.5}%
+\contentsline {chapter}{Conclusion Générale et Perspectives}{15}{chapter*.9}%
+\contentsline {chapter}{Références}{16}{chapter*.10}%
+\contentsline {chapter}{Annexes}{17}{chapter*.11}%
+\contentsline {section}{\numberline {4.6}Extraits de code critiques}{17}{section.4.6}%
+\contentsline {section}{\numberline {4.7}Captures d'écran de l'interface utilisateur}{17}{section.4.7}%
+\contentsline {section}{\numberline {4.8}Configuration Docker Compose}{17}{section.4.8}%
+\contentsline {section}{\numberline {4.9}Guide d'installation}{17}{section.4.9}%

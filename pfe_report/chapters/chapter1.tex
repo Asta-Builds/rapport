@@ -1,0 +1,280 @@
+\chapter{Analyse du Contexte et Problématique}
+\label{chap:contexte}
+
+L'objectif de ce chapitre est d'exposer de manière rigoureuse le contexte industriel et technologique du projet, d'analyser les défaillances de l'infrastructure héritée et de justifier le besoin d'une solution moderne et unifiée de gestion du provisionnement. Nous étudierons comment la dépendance vis-à-vis de scripts fragiles, le cloisonnement des données en silos et les risques liés à l'absence d'automatisation ont conduit au développement du Provisioning Hub.
+
+\section{Introduction et Contexte Industriel}
+
+Dans les grandes organisations contemporaines, la transformation digitale s'accompagne d'une multiplication exponentielle des applications métiers, des plateformes collaboratives et des référentiels techniques. L'accès sécurisé et rapide à ces outils est indispensable pour garantir l'efficacité des collaborateurs. Ce domaine est couvert par la gestion des identités et des accès (\textit{Identity and Access Management} ou IAM).
+
+Pour une entreprise comptant plus de 40~000 collaborateurs, répartis sur plusieurs sites et sous différents statuts contractuels (employés internes, prestataires externes, stagiaires, partenaires), la gestion manuelle ou artisanale des accès est impossible. Le cycle de vie d'un collaborateur au sein du système d'information se résume à travers le modèle \textbf{JML} (\textit{Joiner, Mover, Leaver}) :
+\begin{itemize}
+    \item \textbf{Joiner (Entrée)} : Création des comptes techniques et attribution des privilèges minimums requis dès le premier jour de travail.
+    \item \textbf{Mover (Mutation)} : Ajustement dynamique des droits en fonction des changements de département, de poste ou de site géographique.
+    \item \textbf{Leaver (Départ)} : Révocation instantanée et exhaustive de l'ensemble des accès pour prévenir tout risque d'intrusion post-emploi.
+\end{itemize}
+
+Le projet \textbf{Provisioning Hub} a été initié pour servir de pivot central entre le référentiel des Ressources Humaines (RH), agissant comme source unique de vérité, et les applications consommatrices d'identités (cibles techniques) telles que les annuaires d'entreprise LDAP, l'outil Jira de gestion de projets, ou les services de messagerie.
+
+---
+
+\section{Étude de l'Existant : L'Écosystème Legacy}
+\label{sec:existant}
+
+Avant l'introduction du Provisioning Hub, la gestion et la synchronisation des données d'identités reposaient sur une infrastructure fragmentée, combinant des services synchrones vieillissants et des scripts d'administration locaux.
+
+\subsection{Description des Composants Hérités}
+L'ancienne architecture reposait principalement sur trois briques :
+\begin{enumerate}
+    \item \textbf{ms-hraccess} : Un microservice miroir chargé d'extraire périodiquement les données brutes issues du progiciel de gestion RH (HR Access). Ce service n'appliquait aucune règle de gestion ni de filtre et se contentait d'exposer les données collaborateur.
+    \item \textbf{Services SOAP (MYI-HRA)} : Un ensemble de services web basés sur le protocole SOAP (\textit{Simple Object Access Protocol}) chargés de transporter et de formater les données d'identité pour les transmettre aux applications tierces.
+    \item \textbf{Scripts de traitement par lots (.bat)} : Pour la création d'un nouveau collaborateur ou la suppression d'un collaborateur sortant, l'exploitation reposait sur l'exécution automatique ou planifiée de scripts Batch Windows (\texttt{.bat}). Ces scripts utilisaient des commandes système basiques pour interagir avec les bases de données et les annuaires. Cette approche par scripts Batch présentait des failles de sécurité et d'exploitation majeures :
+\begin{itemize}
+    \item \textbf{Sécurité défaillante} : Utilisation de mots de passe temporaires définis de manière statique au sein des scripts et absence de chiffrement des flux de communication.
+    \item \textbf{Absence de centralisation des erreurs} : Les incidents de synchronisation étaient enregistrés dans des fichiers logs locaux (\texttt{.log}) dispersés sur les serveurs d'exécution, empêchant toute visibilité transverse pour les équipes d'audit et de sécurité.
+    \item \textbf{Instabilité et absence de mécanismes de reprise} : La moindre interruption réseau ou de base de données bloquait l'exécution des scripts de manière silencieuse, sans alerter les administrateurs et sans possibilité de reprise automatique (rollback).
+\end{itemize}
+\end{enumerate}
+
+\subsection{Limites Techniques et Fragmentation du Flux}
+Cette architecture hybride présentait des lacunes conceptuelles majeures :
+\begin{itemize}
+    \item \textbf{Fragibilité opérationnelle} : Les scripts \texttt{.bat} manquaient de mécanismes avancés de gestion des erreurs (pas de gestion des transactions SQL ni de rollback).
+    \item \textbf{Couplage temporel fort et pannes en cascade} : La communication via SOAP imposait des flux synchrones. Si un système cible (comme Jira) était momentanément indisponible, la requête SOAP échouait, bloquant le traitement de tout le lot d'utilisateurs en cours de synchronisation.
+    \item \textbf{Lourdeur du format XML} : Le protocole SOAP repose sur des enveloppes XML verbeuses, entraînant une surconsommation de bande passante et des temps de sérialisation élevés.
+\end{itemize}
+
+Le schéma de ce flux d'intégration synchrone hérité et ses faiblesses structurelles sont modélisés dans la Figure~\ref{fig:flux_legacy}.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.5cm and 2cm,
+        block/.style={draw, fill=blue!10, rectangle, minimum height=1cm, minimum width=2.5cm, align=center, rounded corners, drop shadow},
+        sync/.style={draw=red, <->, >=Stealth, thick, dashed, line width=1.2pt},
+        async/.style={draw=green!60!black, ->, >=Stealth, thick, line width=1.2pt}
+    ]
+        % Nodes
+        \node[block] (source) {ms-hraccess \\ (Source RH)};
+        \node[block, right=of source] (soap) {Services SOAP \\ (MYI-HRA) \& \\ Scripts .bat};
+        \node[block, right=of soap] (target) {LDAP / Jira \\ (Cibles Techniques)};
+        
+        % Arrows
+        \draw[async] (source) -- node[above, font=\small] {Extraction} (soap);
+        \draw[sync] (soap) -- node[above=0.1cm, text=red, font=\small] {Synchrone / Scripts} node[below=0.1cm, text=red, font=\small] {(Point de Blocage)} (target);
+        
+        % Annotation for coupling
+        \node[draw=red, fill=red!10, dashed, below=0.6cm of soap, align=center, font=\small, rounded corners] (warning) {Point de défaillance unique :\\ Si la cible ou le script échoue,\\ les données sont perdues et non tracées};
+        \draw[red, dashed, ->] (warning) -- (soap);
+    \end{tikzpicture}
+    \caption{Flux d'intégration legacy synchrone et exécutions manuelles}
+    \label{fig:flux_legacy}
+\end{figure}
+
+---
+
+\section{Problématique Opérationnelle et Analyse des Risques}
+\label{sec:problematique}
+
+L'exploitation à grande échelle de ce système hérité a généré une dette technique et des risques critiques pour l'organisation.
+
+\subsection{Le Risque de Sécurité Majeur : Les Comptes Orphelins}
+Le dysfonctionnement le plus critique concernait la phase de départ des collaborateurs (\textit{Offboarding}). Bien que la date de sortie soit saisie correctement par les Ressources Humaines dans l'application source, l'échec d'un script Batch ou une exception lors d'un appel SOAP empêchait fréquemment la suppression du compte dans l'annuaire LDAP ou dans l'Active Directory. 
+
+Ces comptes d'anciens collaborateurs restés actifs, appelés \textbf{comptes orphelins}, constituent des vulnérabilités de sécurité majeures. Ils représentent un vecteur privilégié pour des intrusions externes non détectées, violant les règles de base de la norme de sécurité **ISO/IEC 27001** ainsi que le Règlement Général sur la Protection des Données (**RGPD**) concernant le contrôle strict des accès aux données personnelles.
+
+\subsection{Le Cloisonnement des Données (Absence de Vue 360)}
+Dans l'ancienne infrastructure, il n'existait aucune base de données centrale unifiée pour corréler les identités. Chaque système d'information cible gérait ses propres données de façon cloisonnée, formant des **silos de données**. 
+
+Par conséquent, il était impossible d'obtenir une vision transverse d'un collaborateur (par exemple, connaître en temps réel l'ensemble des comptes ouverts sur LDAP, Jira et la messagerie pour un identifiant donné). En cas de contrôle ou d'audit de sécurité, les administrateurs devaient exécuter des requêtes manuelles sur chaque application cible et corréler les données sur des fichiers tableurs, un processus chronophage et propice aux erreurs.
+
+\subsection{Rigidité Fonctionnelle et Coûts d'Exploitation}
+\begin{itemize}
+    \item \textbf{Goulot d'étranglement du développement} : Les règles d'habilitation et de transformation de données étaient codées directement en Java. Toute modification de règle imposait une modification de code, un déploiement de version et un redémarrage du service.
+    \item \textbf{Opacité et boîte noire} : Les logs étaient dispersés sur plusieurs serveurs. Le diagnostic d'un compte non créé prenait plusieurs heures de recherche manuelle.
+    \item \textbf{Coût financier lié aux licences} : Les comptes Jira et SaaS orphelins restaient comptabilisés comme actifs par les éditeurs de logiciels, entraînant des dépenses de licences injustifiées sur des comptes inactifs.
+\end{itemize}
+
+Pour résumer la gravité de ces failles, le Tableau~\ref{tab:analyse_risques_legacy} présente une cartographie des risques du système existant.
+
+\begin{table}[H]
+    \centering
+    \caption{Analyse des risques de sécurité et financiers de l'infrastructure legacy}
+    \label{tab:analyse_risques_legacy}
+    \begin{tabular}{lp{5.5cm}p{5.5cm}}
+        \toprule
+        \textbf{Catégorie} & \textbf{Risque Identifié} & \textbf{Impact Métier / Technique} \\
+        \midrule
+        Sécurité & \textbf{Comptes orphelins actifs} (Leavers non révoqués dans l'AD/LDAP) & Accès illicite aux ressources internes après le départ de collaborateurs, non-conformité RGPD et ISO 27001. \\
+        Financier & \textbf{Surfacturation de licences} (comptes Jira/SaaS non désactivés) & Coûts récurrents élevés pour des comptes inactifs non résiliés. \\
+        Exploitation & \textbf{Fragilité des scripts .bat} (échecs de création/suppression non supervisés) & Erreurs d'intégration silencieuses (Joiners non ajoutés ou Leavers non supprimés). \\
+        Gouvernance & \textbf{Systèmes cloisonnés en silos} (absence de vue consolidée à 360 degrés) & Incohérences d'accès indétectables d'une cible à l'autre, audits de conformité longs et manuels. \\
+        Audit & \textbf{Dispersion des logs} sur plus de 10 serveurs de bases de données & Diagnostic d'incident laborieux (MTTR élevé), manque d'historique de conformité unifiée. \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+---
+
+\section{Avantages de la Solution Proposée : Le Provisioning Hub}
+\label{sec:objectifs}
+
+Le Provisioning Hub a été pensé pour remplacer cette architecture fragile par une plateforme moderne, robuste et industrialisée, offrant des avantages techniques et métiers significatifs.
+
+\subsection{Automatisation Complète du Cycle JML}
+Le Provisioning Hub prend en charge l'ensemble du cycle de vie du collaborateur de manière automatisée. Dès qu'un changement d'état (entrée, mutation, sortie) est détecté dans le système RH, un message événementiel est publié et traité immédiatement. La révocation des accès en cas de départ est garantie à 100\,\% sans intervention humaine.
+
+Le cycle JML standardisé et son automatisation sont illustrés par la Figure~\ref{fig:jml_lifecycle}.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.5cm and 1.8cm,
+        state/.style={draw, fill=green!10, circle, minimum size=2.2cm, align=center, drop shadow, font=\small},
+        event/.style={font=\small\itshape, text=blue},
+        arrow/.style={->, >=Stealth, thick, line width=1.2pt}
+    ]
+        % States
+        \node[state, fill=blue!10] (joiner) {Joiner \\ (Entrée)};
+        \node[state, right=of joiner, fill=orange!10] (mover) {Mover \\ (Mutation)};
+        \node[state, right=of mover, fill=red!10] (leaver) {Leaver \\ (Départ)};
+        
+        % Transitions
+        \draw[arrow] (joiner) -- node[above, event] {Création comptes} node[below, event] {(AD, Jira)} (mover);
+        \draw[arrow] (mover) -- node[above, event] {Mise à jour} node[below, event] {profil / rôle} (leaver);
+        
+        % Self loops or other transitions
+        \path (mover) edge [loop above, arrow] node[event] {Changement UO} (mover);
+        
+        % Final action
+        \node[draw=red, fill=red!20, rectangle, below=0.8cm of leaver, align=center, rounded corners, font=\small, drop shadow] (revoke) {Révocation automatique\\ des accès (LDAP/SaaS)};
+        \draw[arrow, red, -{Stealth[scale=1.2]}] (leaver) -- node[right, text=red, font=\small, align=left] {Détection de la\\ date de sortie} (revoke);
+    \end{tikzpicture}
+    \caption{Cycle de vie des collaborateurs (JML) et révocation automatisée}
+    \label{fig:jml_lifecycle}
+\end{figure}
+
+\subsection{Fiabilité Comparée des Modèles de Communication}
+Sur le plan académique, la différence de fiabilité entre l'ancien système (synchrone et en série) et le Provisioning Hub (asynchrone et découplé) peut être modélisée mathématiquement.
+
+Soit un flux de provisionnement devant synchroniser une identité sur $N$ cibles techniques indépendantes. On note $p_i$ la probabilité de disponibilité opérationnelle de la cible $i$ au moment du flux.
+Dans le modèle d'intégration synchrone en série hérité, le système global est considéré comme défaillant si une seule cible échoue. La fiabilité globale $R_{synchrone}$ est donc le produit des fiabilités individuelles :
+\begin{equation}
+R_{synchrone} = \prod_{i=1}^{N} p_i
+\end{equation}
+
+Si nous avons $N = 5$ cibles ayant chacune une fiabilité de $p_i = 0,98$ (ce qui représente 2\,\% de taux d'indisponibilité ou micro-coupure), la fiabilité globale du flux synchrone tombe à :
+\begin{equation}
+R_{synchrone} = (0,98)^5 \approx 0,904 \quad (90,4\,\%)
+\end{equation}
+Cela signifie qu'environ 10\,\% des flux d'intégration globale se terminent en échec ou en perte de données chaque jour.
+
+Le Provisioning Hub résout cette faiblesse grâce à un modèle asynchrone découplé par des files d'attente (RabbitMQ). La fiabilité globale de la synchronisation vers chaque cible $i$ est isolée de la disponibilité des autres cibles, et consolidée par un mécanisme de retry automatique. La fiabilité de chaque branche d'intégration $i$ devient alors :
+\begin{equation}
+R_{asynchrone, i} = 1 - (1 - p_i)^k
+\end{equation}
+où $k$ représente le nombre de tentatives automatiques paramétrées sur la file d'attente. Avec $p_i = 0,98$ et seulement $k = 3$ tentatives, la fiabilité par cible monte à :
+\begin{equation}
+R_{asynchrone, i} = 1 - (1 - 0,98)^3 = 1 - 0,000008 = 0,999992 \quad (99,9992\,\%)
+\end{equation}
+Le système garantit ainsi la livraison éventuelle des données à toutes les cibles sans jamais bloquer le pipeline global de l'entreprise.
+
+\subsection{Hybridation des Flux : Workflow Synchrone Manuel et Asynchrone Événementiel}
+Le Provisioning Hub résout l'opposition traditionnelle entre les flux en temps réel et la robustesse de l'arrière-plan en implémentant une double dynamique d'exécution :
+\begin{itemize}
+    \item \textbf{Workflow asynchrone événementiel (mode automatique)} : C'est le comportement nominal pour le traitement en masse et l'automatisation. Lors de l'ingestion d'un événement provenant de l'une des 7 sources (comme un changement RH ou une affectation de planning), le flux est traité de manière asynchrone. L'Orchestrateur persiste l'événement, évalue les politiques métier, crée le Job et publie un message dans RabbitMQ. Des agents d'exécution (\textit{workers}) dépilent ces messages de manière distribuée. Cela protège le système contre les surcharges réseau et assure une livraison garantie sans couplage temporel (Figure~\ref{fig:flow_async_hub}).
+    
+    \begin{figure}[H]
+        \centering
+        \begin{tikzpicture}[
+            node distance=1.2cm and 1.8cm,
+            block/.style={draw, fill=blue!10, rectangle, minimum height=0.8cm, minimum width=2.2cm, align=center, rounded corners, drop shadow, font=\small},
+            db/.style={draw, fill=orange!10, cylinder, minimum height=1.2cm, minimum width=1.4cm, align=center, shape border rotate=90, drop shadow, font=\small},
+            queue/.style={draw, fill=green!10, rectangle, minimum height=0.8cm, minimum width=1.8cm, align=center, rounded corners, drop shadow, font=\small},
+            arrow/.style={->, >=Stealth, thick, line width=1.2pt}
+        ]
+            % Nodes
+            \node[block] (source) {Source Événement \\ (ex: RH, Planning)};
+            \node[block, right=of source] (orchestrator) {Orchestrateur \\ (Event Processor)};
+            \node[db, below=of orchestrator] (db) {PostgreSQL \\ (Save-First)};
+            \node[queue, right=of orchestrator] (rabbitmq) {File RabbitMQ \\ (Queue)};
+            \node[block, right=of rabbitmq] (worker) {Worker \\ (Connector)};
+            \node[block, below=of worker] (target) {Cible \\ (LDAP, Jira)};
+            
+            % Connectors
+            \draw[arrow] (source) -- node[above, font=\scriptsize] {Webhook} (orchestrator);
+            \draw[arrow] (orchestrator) -- node[left, font=\scriptsize] {1. Persiste} (db);
+            \draw[arrow] (orchestrator) -- node[above, font=\scriptsize] {2. Publie} (rabbitmq);
+            \draw[arrow] (rabbitmq) -- node[above, font=\scriptsize] {3. Dépile} (worker);
+            \draw[arrow] (worker) -- node[left, font=\scriptsize] {4. Provisionne} (target);
+        \end{tikzpicture}
+        \caption{Flux asynchrone automatique découplé (RabbitMQ)}
+        \label{fig:flow_async_hub}
+    \end{figure}
+
+    \item \textbf{Workflow synchrone manuel (mode d'administration)} : Lorsqu'un administrateur système doit intervenir en urgence depuis la console d'administration Angular (par exemple pour forcer la synchronisation d'un nouvel arrivant avec « Process Now » ou rejouer un Job en échec avec « Retry »), le Provisioning Hub bascule sur un parcours synchrone. Le \texttt{JobController} REST relaie immédiatement l'appel au \texttt{JobProcessor} qui exécute instantanément les étapes du job. La réponse REST retourne le statut d'exécution direct (succès ou échec détaillé) à la console d'administration, offrant un feedback visuel immédiat indispensable pour le support technique et la supervision en temps réel (Figure~\ref{fig:flow_sync_hub}).
+    
+    Plus concrètement, au sein de l'interface utilisateur (\texttt{admin-ui-angular}), l'administrateur dispose d'une console d'orchestration « Jobs \& Steps ». Si une étape échoue (statut \texttt{FAILED}), l'administrateur peut ouvrir une fenêtre modale interactive affichant le contenu exact de la requête envoyée (\texttt{reqPayload}), la réponse brute renvoyée par le connecteur cible (\texttt{resPayload}) ainsi que la trace de l'erreur (\texttt{errorMessage}). Après résolution du problème sous-jacent, l'administrateur peut relancer manuellement l'exécution de manière synchrone via l'interface, qui appelle l'API REST (\texttt{/api/v1/jobs/\{id\}/retry}) et rafraîchit immédiatement l'affichage pour confirmer la bonne exécution.
+    
+    \begin{figure}[H]
+        \centering
+        \begin{tikzpicture}[
+            node distance=1.2cm and 1.8cm,
+            block/.style={draw, fill=blue!10, rectangle, minimum height=0.8cm, minimum width=2.4cm, align=center, rounded corners, drop shadow, font=\small},
+            arrow/.style={->, >=Stealth, thick, line width=1.2pt}
+        ]
+            % Nodes
+            \node[block, fill=orange!15] (admin) {Administrateur \\ (UI Angular)};
+            \node[block, right=of admin] (controller) {JobController \\ (API REST)};
+            \node[block, right=of controller] (processor) {JobProcessor \\ (Logic Service)};
+            \node[block, right=of processor, fill=red!10] (target) {LDAP / Jira \\ (Cibles Techniques)};
+            
+            % Connectors
+            \draw[arrow] (admin.north east) -- node[above, font=\scriptsize] {1. POST} (controller.north west);
+            \draw[arrow] (controller.north east) -- node[above, font=\scriptsize] {2. Appelle} (processor.north west);
+            \draw[arrow] (processor.north east) -- node[above, font=\scriptsize] {3. Exécute} (target.north west);
+            
+            \draw[arrow, dashed] (target.south west) -- node[below, font=\scriptsize] {4. Statut} (processor.south east);
+            \draw[arrow, dashed] (processor.south west) -- node[below, font=\scriptsize] {5. Réponse} (controller.south east);
+            \draw[arrow, dashed] (controller.south west) -- node[below, font=\scriptsize] {6. Feedback} (admin.south east);
+        \end{tikzpicture}
+        \caption{Flux synchrone manuel d'administration (Feedback direct)}
+        \label{fig:flow_sync_hub}
+    \end{figure}
+\end{itemize}
+
+\subsection{Vue Hub 360 (Gouvernance et Audit)}
+En centralisant tous les échanges de données et l'état des comptes cibles associés au sein d'un même schéma relationnel, le Provisioning Hub brise les silos de l'infrastructure héritée. L'interface d'administration offre une vue « Hub 360 » unifiée pour chaque collaborateur, permettant aux équipes de sécurité et d'audit de visualiser instantanément l'état de l'ensemble des comptes de ce collaborateur d'un seul coup d'œil.
+
+\subsection{Moteur de Règles Déclaratif}
+Grâce à l'intégration du moteur de règles SpEL (Spring Expression Language), les règles de filtrage et de routage des données sont stockées au format JSON. Un administrateur peut modifier une règle d'habilitation au runtime depuis l'interface Angular du Hub. La règle est appliquée instantanément sans nécessiter de recompilation ni de redémarrage de service.
+
+Le Tableau~\ref{tab:comparaison_legacy_hub} résume la comparaison entre le système historique et le Provisioning Hub.
+
+\begin{table}[H]
+    \centering
+    \caption{Comparaison fonctionnelle et technique : Legacy vs Provisioning Hub}
+    \label{tab:comparaison_legacy_hub}
+    \begin{tabular}{p{3.8cm}p{5.5cm}p{5.5cm}}
+        \toprule
+        \textbf{Critère} & \textbf{Système Legacy} & \textbf{Provisioning Hub} \\
+        \midrule
+        Mécanisme d'exécution & Scripts Batch (\texttt{.bat}) locaux et appels SOAP & Moteur événementiel (RabbitMQ) \& architecture hexagonale \\
+        Mode d'exécution & Synchrone rigide ou traitements par lots isolés & Hybride : Asynchrone événementiel automatique (RabbitMQ) \& Synchrone direct pour les actions manuelles administrateur \\
+        Configuration des règles & Codée en dur en Java & Déclarative (UI Angular / JSON) \\
+        Prise en compte des règles & Recompilation, déploiement et redémarrage & Application instantanée en cours d'exécution via SpEL \\
+        Gestion des erreurs & Arrêt silencieux sans traçabilité des scripts & Sauvegarde préalable (Save-First) et gestion de reprise (DLQ) \\
+        Révocation (Offboarding) & Incomplète (génération fréquente de comptes orphelins) & Automatisée à 100\,\% dès la date de sortie RH \\
+        Vue d'audit & Cloisonnée en silos de données par application & Consolidation unifiée en base PostgreSQL (Vue Hub 360) \\
+        Délais de déploiement cible & Environ 15 jours de développement & Moins de 24 heures par configuration \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+---
+
+\section{Conclusion}
+
+L'analyse de l'existant a mis en évidence le danger de s'appuyer sur des briques hétérogènes comme des scripts Batch (\texttt{.bat}) et des services SOAP synchrones pour gérer les accès de plus de 40~000 collaborateurs. Les risques de sécurité représentés par les comptes orphelins et le manque d'auditabilité dû au cloisonnement des données ont rendu indispensable la refonte complète du système. 
+
+Le Provisioning Hub apporte une solution moderne orientée événements, résiliente et hautement configurable, garantissant une automatisation du cycle JML et une traçabilité unifiée. Le chapitre suivant détaillera les choix de conception et la modélisation architecturale adoptés pour réaliser cette vision.

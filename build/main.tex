@@ -1,0 +1,38 @@
+\documentclass[12pt,a4paper]{report}
+
+\input{preamble}
+
+\begin{document}
+
+% --- Préliminaires ---
+\pagenumbering{roman}
+\include{frontmatter/preliminaries}
+
+% --- Introduction Générale ---
+\begin{center}
+    {\fontsize{24}{28}\selectfont \textbf{Introduction Générale}}
+\end{center}
+\addcontentsline{toc}{chapter}{Introduction Générale}
+\label{chap:intro_gen}
+\vspace{1cm}
+
+Dans un environnement d'entreprise comptant plus de 40 000 collaborateurs, la gestion des identités et des accès (\textit{Identity and Access Management} - IAM) ne représente pas seulement un défi technique, mais un enjeu stratégique de sécurité et de productivité. Le provisionnement, processus consistant à synchroniser les données RH vers des cibles techniques (LDAP, Jira, etc.), est le moteur de l'opérationnalité des utilisateurs.
+
+C'est dans ce contexte que s'inscrit le projet \textbf{Provisioning Hub}, conçu comme l'orchestrateur central entre les sources de données RH et les systèmes cibles. L'objectif est de transformer un processus historiquement basé sur le développement d'intégrations spécifiques en une plateforme de configuration de workflows. En adoptant un paradigme déclaratif, le Provisioning Hub permet de définir dynamiquement les flux de données, assurant ainsi une agilité accrue et une gouvernance des données renforcée.
+
+Le présent rapport détaille la transition d'un écosystème legacy fragmenté vers cette solution moderne. Il est structuré comme suit : le \textbf{Chapitre 1} analyse le contexte et la problématique ; le \textbf{Chapitre 2} expose la conception et l'architecture ; le \textbf{Chapitre 3} décrit la réalisation technique ; et le \textbf{Chapitre 4} présente la validation et les résultats.
+
+% --- Corps du rapport ---
+\pagenumbering{arabic}
+
+\include{chapters/chapter1} % Analyse du Contexte et Problématique
+\include{chapters/chapter2} % Conception et Architecture du Système
+\include{chapters/chapter3} % Réalisation Technique et Implémentation
+\include{chapters/chapter4} % Tests, Validation et Résultats
+
+% --- Conclusion et Annexes ---
+\include{conclusion}
+\include{references}
+\include{annexes}
+
+\end{document}

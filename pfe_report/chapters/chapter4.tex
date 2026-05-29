@@ -1,0 +1,56 @@
+\chapter{Tests, Validation et Résultats}
+\label{chap:tests}
+
+Ce chapitre présente la démarche de validation adoptée pour s'assurer que le Provisioning Hub répond aux exigences fonctionnelles et techniques définies. Nous détaillerons la stratégie de tests, l'analyse des résultats et la présentation de l'interface utilisateur.
+
+\section{Introduction}
+La validation d'un système de synchronisation de données nécessite une approche multi-niveaux. Il ne s'agit pas seulement de vérifier que le code fonctionne, mais de garantir l'intégrité des données transférées, la stabilité du système sous charge et l'ergonomie de l'outil d'administration.
+
+\section{Stratégie de Tests}
+\label{sec:strategie_tests}
+
+Nous avons mis en œuvre une pyramide de tests pour couvrir l'ensemble des risques techniques et fonctionnels.
+
+\subsection{Tests Unitaires et d'Intégration}
+L'utilisation de \textbf{JUnit 5} et \textbf{Mockito} a permis d'atteindre un taux de couverture élevé sur la logique métier. Un accent particulier a été mis sur le moteur de règles SpEL, avec des centaines de scénarios testant des expressions logiques complexes et des cas limites. Les tests d'intégration ont validé la chaîne complète : \textit{Réception Message $\rightarrow$ Traitement Domain $\rightarrow$ Persistance Postgres $\rightarrow$ Envoi Destination}.
+
+\subsection{Tests de bout en bout (E2E) et Automatisation}
+Pour valider l'expérience utilisateur et les flux transverses, nous avons utilisé \textbf{Selenium}. Des scripts automatisés simulent le parcours complet d'un administrateur :
+\begin{enumerate}
+    \item Création d'un nouveau workflow de provisionnement via l'interface Angular.
+    \item Configuration d'une règle de filtrage SpEL complexe.
+    \item Lancement d'une synchronisation manuelle.
+    \item Vérification de l'apparition des logs en temps réel dans la vue Hub 360.
+\end{enumerate}
+
+\section{Analyse des Résultats}
+\label{sec:analyse_resultats}
+
+\subsection{Validation de la matrice de tests}
+L'efficacité du système a été validée à travers une matrice de tests rigoureuse couvrant trois axes :
+\begin{itemize}
+    \item \textbf{Résolution d'Identité :} Le système a démontré une exactitude de 100\% dans le mapping des identifiants entre la source RH et les cibles LDAP/Jira, gérant parfaitement les cas de changements de noms ou de doublons.
+    \item \textbf{Intégrité des Payloads :} Les données envoyées ont été validées par rapport aux schémas attendus par les API cibles. Aucun rejet pour format invalide n'a été observé après la phase de stabilisation.
+    \item \textbf{Télémétrie et Audit :} La vue Hub 360 a permis de reconstruire l'historique complet de synchronisation pour n'importe quel collaborateur, validant l'objectif de traçabilité totale.
+\end{itemize}
+
+\subsection{Mesure des gains de performance et impact métier}
+Le passage à l'approche déclarative a engendré des gains quantifiables et significatifs :
+\begin{itemize}
+    \item \textbf{Réduction du Time-to-Integration :} Le délai moyen pour ajouter une nouvelle destination est passé de 15 jours (cycle de dev complet) à moins d'une journée (configuration UI), représentant un gain d'agilité majeur.
+    \item \textbf{Optimisation du débit :} Grâce au Bulk Loading, le temps de traitement d'un lot de 10 000 enregistrements a été divisé par quatre, permettant une synchronisation quasi instantanée des données.
+\end{itemize}
+
+\section{Présentation de l'Interface Administrateur}
+\label{sec:interface}
+
+L'interface, développée avec Angular 19, a été conçue pour simplifier la gestion d'un système complexe tout en offrant une visibilité maximale.
+
+\subsection{Dashboard et Monitoring}
+Le tableau de bord offre une vue synthétique de la santé du système. Il permet de surveiller en temps réel le nombre d'échanges en cours, le taux d'échec global et l'état des files d'attente RabbitMQ, permettant une réaction rapide en cas d'anomalie.
+
+\subsection{Vue Employé 360 et Historique des échanges}
+La fonctionnalité \textbf{Employee 360} est l'atout majeur du système. Elle agrège tous les \textit{Exchanges} liés à un individu. L'administrateur peut ainsi visualiser sur une seule page l'ensemble du cycle de vie du collaborateur : création dans l'AD, mise à jour dans Jira, et éventuels échecs de synchronisation avec le détail exact de l'erreur retournée par l'API.
+
+\section{Conclusion}
+La phase de validation confirme que le Provisioning Hub remplit l'ensemble des objectifs fixés initialement. La solution est robuste, performante et apporte une valeur ajoutée immédiate aux équipes opérationnelles en supprimant la dépendance au cycle de développement.

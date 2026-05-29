@@ -1,0 +1,25 @@
+\begin{center}
+    {\fontsize{24}{28}\selectfont \textbf{Introduction Générale}}
+\end{center}
+\addcontentsline{toc}{chapter}{Introduction Générale}
+\label{chap:intro_gen}
+\vspace{1cm}
+
+À l'ère de la transformation digitale et de la cyber-résilience, la gestion des identités et des accès (\textit{Identity and Access Management} - IAM) est devenue un pilier stratégique pour les grandes organisations. La capacité d'une entreprise à provisionner rapidement et précisément les accès de ses collaborateurs vers un écosystème hétérogène d'applications est non seulement un gage d'efficacité opérationnelle, mais également une exigence de sécurité critique. Un retard dans l'attribution des droits ou, plus grave, un défaut de révocation lors d'un départ, peut exposer l'organisation à des risques de sécurité majeurs.
+
+Dans un contexte de généralisation du travail hybride et de multiplication des outils SaaS, la complexité du provisionnement s'est accrue. Les données de Ressources Humaines (RH), qui servent de source de vérité, doivent être synchronisées en temps réel vers une multitude de systèmes cibles tels que les annuaires LDAP, les outils de gestion de projet comme Jira, ou divers portails applicatifs. Cependant, la mise en œuvre de cette synchronisation se heurte souvent à l'obsolescence des systèmes legacy, caractérisés par des architectures rigides et un couplage fort entre la logique métier et l'implémentation technique.
+
+Le présent projet s'inscrit dans une volonté de modernisation profonde de ces processus à travers la conception et la réalisation du \textbf{Provisioning Hub}. L'ambition de ce projet est de rompre avec le paradigme traditionnel du « développement d'intégrations » — où chaque nouvelle destination nécessite l'écriture de code et un cycle de déploiement — pour instaurer un modèle de « configuration de workflows ». En transformant le processus de provisionnement en une plateforme déclarative, le Provisioning Hub permet de définir dynamiquement les sources, les filtres de sélection, les transformations de données et les destinations.
+
+L'enjeu technique est double. D'une part, il s'agit d'assurer une flexibilité maximale via l'intégration d'un moteur de règles dynamiques basé sur le \textit{Spring Expression Language} (SpEL), permettant des modifications de règles métier au moment de l'exécution sans interruption de service. D'autre part, il est impératif de garantir une résilience absolue et une traçabilité totale. L'introduction d'une architecture orientée événements, couplée à un modèle de persistance « Save-First », permet d'éliminer toute perte de données et d'offrir une visibilité à 360 degrés sur le parcours de synchronisation de chaque collaborateur, transformant ainsi un processus opaque en un système auditable.
+
+Pour répondre à ces exigences, la solution s'appuie sur une pile technologique moderne et robuste : \textbf{Java 21} et \textbf{Spring Boot 3.3} pour la puissance du backend et le support des \textit{Virtual Threads}, \textbf{Angular 19} pour l'ergonomie de l'interface d'administration, \textbf{PostgreSQL 17} pour la fiabilité et la performance des données, et \textbf{RabbitMQ 3.13} pour l'orchestration asynchrone et la gestion des files d'attente.
+
+Le présent rapport est structuré de la manière suivante :
+\begin{itemize}
+    \item Le \textbf{Chapitre 1} est consacré à l'analyse du contexte et de la problématique. Nous y détaillerons l'écosystème legacy et les défis techniques et opérationnels qui justifient la création du Provisioning Hub.
+    \item Le \textbf{Chapitre 2} expose la phase de conception et d'architecture. Nous y justifierons les choix de l'architecture hexagonale, du modèle de pipeline déclaratif et de la modélisation des données.
+    \item Le \textbf{Chapitre 3} décrit la réalisation technique et l'implémentation, en mettant l'accent sur les patterns de résilience, la sécurité et les optimisations de performance.
+    \item Le \textbf{Chapitre 4} présente la stratégie de validation, les résultats obtenus et l'analyse de l'impact métier de la solution.
+\end{itemize}
+Enfin, une conclusion générale synthétisera les apports du projet et ouvrira des perspectives d'évolution vers une version 2, notamment concernant la conformité RGPD et le passage à l'échelle pour des volumes de données massifs.

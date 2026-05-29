@@ -1,0 +1,64 @@
+\chapter{Réalisation Technique et Implémentation}
+\label{chap:realisation}
+
+Ce chapitre détaille la mise en œuvre technique du Provisioning Hub. Nous passerons en revue la stack technologique, l'implémentation des patterns de résilience et les optimisations de performance qui permettent au système de traiter des volumes de données importants avec une fiabilité maximale.
+
+\section{Introduction}
+L'implémentation d'une plateforme déclarative demande une attention particulière sur la gestion du cycle de vie des données et la robustesse des communications réseau. L'enjeu est de transformer des configurations abstraites en appels API concrets, sécurisés et auditables.
+
+\section{Environnement de Développement}
+\label{sec:environnement_dev}
+
+\subsection{Stack Technique et Justifications}
+Le choix des technologies a été guidé par des impératifs de performance, de maintenabilité et de support à long terme.
+\begin{itemize}
+    \item \textbf{Java 21 \& Spring Boot 3.3 :} L'utilisation de la version 21 permet de bénéficier des \textit{Virtual Threads} (Project Loom), réduisant drastiquement la consommation de ressources lors des appels réseau bloquants vers les destinations. Spring Boot 3.3 assure une intégration fluide des modules de sécurité et de persistance.
+    \item \textbf{Angular 19 :} Choisi pour sa capacité à gérer des états complexes dans l'interface d'administration, notamment pour le concepteur de workflows et la vue Hub 360.
+    \item \textbf{RabbitMQ 3.13 :} Assure le rôle de broker de messages, permettant l'implémentation d'un mode de traitement asynchrone, la gestion des priorités et la mise en place de files d'attente de récupération.
+    \item \textbf{PostgreSQL 17 :} Offre des performances accrues pour les requêtes complexes et une fiabilité transactionnelle indispensable pour le pattern Save-First.
+\end{itemize}
+
+\subsection{Orchestration et CI/CD}
+Pour garantir la portabilité et la reproductibilité du système, nous avons utilisé \textbf{Docker} pour la conteneurisation de l'application et de ses dépendances. La gestion des schémas de base de données est assurée par \textbf{Flyway}, permettant un versioning rigoureux des migrations SQL. Ce flux CI/CD permet d'assurer que chaque modification de schéma est testée et appliquée de manière atomique sur tous les environnements.
+
+\section{Implémentation des Fonctionnalités Clés}
+\label{sec:impl_cles}
+
+\subsection{Le pattern "Save-First" et la traçabilité absolue}
+L'un des piliers du système est la garantie qu'aucune donnée n'est perdue, même en cas de crash système. Nous avons implémenté le pattern \textbf{Save-First}. Le flux d'exécution suit strictement cet ordre :
+\begin{enumerate}
+    \item \textbf{Construction :} Le système assemble le payload final en fonction des règles de transformation.
+    \item \textbf{Persistance :} L'échange est enregistré en base de données avec l'état \texttt{PENDING} et le contenu du payload.
+    \item \textbf{Transmission :} L'appel réseau est effectué vers la destination.
+    \item \textbf{Finalisation :} L'état de l'échange est mis à jour (\texttt{SUCCESS} ou \texttt{FAILED}) avec la réponse brute de la cible.
+\end{enumerate}
+Cette approche transforme la base de données en un journal d'audit immuable, permettant la reconstruction complète de l'état du système à tout instant.
+
+\subsection{Gestion de la résilience et des erreurs}
+La communication avec des systèmes externes est intrinsèquement instable. Pour y remédier, nous avons mis en place :
+\begin{itemize}
+    \item \textbf{Retry avec Backoff Exponentiel :} En cas d'erreur transitoire (ex: timeout, 503 Service Unavailable), le système reprogramme l'échange avec un délai croissant (ex: 1s, 10s, 1min, 10min). Cela évite de saturer une cible déjà en difficulté.
+    \item \textbf{Dead Letter Queue (DLQ) :} Si le nombre maximum de tentatives est atteint, le message est déplacé vers une DLQ. Cette file d'attente sert de zone d'isolement. L'administrateur peut alors analyser l'erreur via l'interface, corriger la règle métier et déclencher un \textit{replay} manuel de l'échange.
+\end{itemize}
+
+\subsection{Optimisation des performances et résolution du problème N+1}
+Le traitement de volumes massifs de données (plusieurs dizaines de milliers de collaborateurs) a révélé un goulot d'étranglement lié aux requêtes répétitives vers la base de données (problème N+1). Nous avons optimisé ce processus via le \textbf{Bulk Loading}. 
+Au lieu de récupérer les attributs pour chaque collaborateur individuellement, le système récupère les données par lots (\textit{batching}) en utilisant des jointures optimisées et le chargement anticipé (\textit{Eager Loading}) via JPA. Cette optimisation a permis de réduire le temps de traitement global de 70\%, augmentant ainsi considérablement le débit d'ingestion.
+
+\section{Sécurité et Conformité}
+\label{sec:securite}
+
+La manipulation de données RH et de secrets d'accès impose un niveau de sécurité maximal.
+
+\subsection{Chiffrement des secrets et données sensibles}
+Les identifiants de connexion aux systèmes cibles ne sont jamais stockés en clair. Nous utilisons l'algorithme \textbf{AES-256-GCM} pour le chiffrement symétrique des secrets. L'utilisation d'un \textit{Initialization Vector} (IV) unique pour chaque secret empêche les attaques par analyse de motifs et garantit la confidentialité des accès.
+
+\subsection{Gestion des accès et authentification}
+L'accès à l'interface d'administration est sécurisé par :
+\begin{itemize}
+    \item \textbf{JWT (JSON Web Tokens) :} Pour une authentification sans état, sécurisée et scalable entre le frontend Angular et le backend Spring Boot.
+    \item \textbf{RBAC (Role-Based Access Control) :} Les permissions sont granulaires. Un profil \textit{Viewer} peut consulter le Hub 360, tandis qu'un profil \textit{Admin} a les droits de modifier les workflows et de déclencher des replays.
+\end{itemize}
+
+\section{Conclusion}
+L'implémentation du Provisioning Hub a permis de transformer la vision théorique en une solution technique robuste. En combinant des patterns architecturaux modernes et des optimisations de bas niveau, nous avons construit un système capable de supporter des flux complexes avec une fiabilité industrielle. Le chapitre suivant sera consacré à la validation de ces résultats à travers une stratégie de tests rigoureuse.

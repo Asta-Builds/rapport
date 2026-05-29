@@ -1,0 +1,76 @@
+\chapter*{Dédicace}
+\addcontentsline{toc}{chapter}{Dédicace}
+\begin{center}
+    \vspace*{1cm}
+    \textit{À nos très chers parents, \\
+    Aucun mot ne saurait exprimer notre gratitude pour Você amour inconditionnel, vos sacrifices et votre soutien indéfectible tout au long de nos études. Ce travail est le fruit de vos prières et de votre confiance.} \\
+    \vspace{1cm}
+    \textit{À nos frères et sœurs, \\
+    Pour vos encouragements constants, votre présence et la joie que vous apportez dans nos vies.} \\
+    \vspace{1cm}
+    \textit{À nos enseignants et mentors, \\
+    Qui nous ont transmis le savoir avec passion et nous ont guidés vers l'excellence académique et professionnelle.} \\
+    \vspace{1cm}
+    \textit{À tous nos amis et compagnons de route, \\
+    Pour les moments de partage, d'entraide et de solidarité durant ce parcours universitaire.} \\
+    \vspace{1cm}
+    \textit{À tous ceux qui, d'une manière ou d'une autre, ont contribué à l'aboutissement de ce projet.} \\
+    \vspace{1cm}
+    \textbf{Nous vous dédions ce modeste travail.}
+\end{center}
+\newpage
+
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+L'aboutissement de ce projet de fin d'études a été rendu possible grâce au soutien et à la collaboration de nombreuses personnes que nous tenons à remercier chaleureusement.
+
+Nous tenons tout d'abord à exprimer notre profonde gratitude à notre encadrant professionnel, \texttt{[Nom de l'encadrant professionnel]}, pour sa confiance, sa disponibilité et ses précieux conseils tout au long de ce projet. Son expertise technique et sa vision stratégique ont été déterminantes dans l'orientation du Provisioning Hub, nous permettant de confronter la théorie aux réalités complexes du monde industriel.
+
+Nous remercions également notre encadrant académique, \texttt{[Nom de l'encadrant académique]}, pour son suivi rigoureux, ses critiques constructives et son soutien méthodologique. Sa rigueur intellectuelle nous a permis de maintenir un haut niveau d'exigence et de structurer notre réflexion de manière académique.
+
+Nos remerciements s'adressent également à l'ensemble des membres de l'équipe technique de \texttt{[Nom de l'entreprise]} pour leur accueil chaleureux, leur patience et leur collaboration fructueuse. Leurs retours d'expérience sur les systèmes legacy ont été essentiels pour identifier les points de douleur et concevoir une solution adaptée.
+
+Enfin, nous exprimons notre reconnaissance aux membres du jury qui nous font l'honneur d'évaluer ce travail. Leurs remarques et suggestions seront accueillies avec intérêt pour enrichir la qualité finale de ce mémoire.
+\newpage
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+In the context of modernizing Human Resources data management, this project presents the design and implementation of the \textbf{Provisioning Hub}, a declarative platform designed to synchronize HR data across multiple target systems (LDAP, Jira, etc.). The legacy ecosystem, characterized by fragmented Java-based integrations, suffered from significant development bottlenecks, a lack of unified traceability, and operational rigidity. 
+
+The Provisioning Hub transforms this "code-heavy" process into a configuration-driven workflow. By implementing a declarative pipeline (\textit{Fetch $\rightarrow$ Filter $\rightarrow$ Transform $\rightarrow$ Send}) and integrating a dynamic policy engine based on SpEL, the system eliminates the need for redeployments when adding new destinations or updating business rules. Key technical contributions include the \textbf{Hub 360} view for end-to-end traceability, a \textbf{Save-First} persistence pattern to ensure data resilience, and the use of a \textbf{Dead Letter Queue (DLQ)} for robust error handling. The solution is built on a modern tech stack including Java 21, Spring Boot 3.3, Angular 19, PostgreSQL 17, and RabbitMQ 3.13. The results demonstrate a significant reduction in integration time and a total recovery of traceability across all provisioning flows.
+
+\textbf{Keywords:} HR Provisioning, Declarative Platform, SpEL, Resilience, Hub 360, Event-Driven Architecture.
+\newpage
+
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+Dans le cadre de la modernisation de la gestion des données de Ressources Humaines, ce projet présente la conception et la réalisation du \textbf{Provisioning Hub}, une plateforme déclarative destinée à synchroniser les données RH vers divers systèmes cibles (LDAP, Jira, etc.). L'écosystème legacy, caractérisé par des intégrations fragmentées en Java, souffrait de goulots d'étranglement majeurs lors du développement, d'un déficit de traçabilité unifiée et d'une forte rigidité opérationnelle.
+
+Le Provisioning Hub transforme ce processus « centré sur le code » en un flux basé sur la configuration. En mettant en œuvre un pipeline déclaratif (\textit{Fetch $\rightarrow$ Filter $\rightarrow$ Transform $\rightarrow$ Send}) et en intégrant un moteur de règles dynamiques basé sur SpEL, le système élimine la nécessité de redéploiements lors de l'ajout de nouvelles destinations ou de la modification de règles métier. Les contributions techniques majeures incluent la vue \textbf{Hub 360} pour une traçabilité de bout en bout, un modèle de persistance \textbf{Save-First} pour garantir la résilience des données, ainsi que l'utilisation d'une \textbf{Dead Letter Queue (DLQ)} pour une gestion robuste des échecs. La solution s'appuie sur une pile technologique moderne comprenant Java 21, Spring Boot 3.3, Angular 19, PostgreSQL 17 et RabbitMQ 3.13. Les résultats démontrent une réduction significative des délais d'intégration et une traçabilité totale de l'ensemble des flux de provisionnement.
+
+\textbf{Mots-clés :} Provisionnement RH, Plateforme Déclarative, SpEL, Résilience, Hub 360, Architecture Orientée Événements.
+\newpage
+
+\chapter*{Glossaire}
+\addcontentsline{toc}{chapter}{Glossaire}
+\begin{description}
+    \item[LDAP] \textit{(Lightweight Directory Access Protocol)} : Protocole standard utilisé pour l'accès aux services d'annuaire.
+    \item[SpEL] \textit{(Spring Expression Language)} : Langage d'expression puissant utilisé par le framework Spring pour manipuler des objets à l'exécution.
+    \item[DLQ] \textit{(Dead Letter Queue)} : File d'attente spécifique où sont envoyés les messages qui n'ont pu être traités après plusieurs tentatives.
+    \item[CQRS] \textit{(Command Query Responsibility Segregation)} : Pattern architectural séparant les opérations de lecture des opérations d'écriture.
+    \item[Hexagonal Architecture] : Style d'architecture visant à isoler le cœur métier des détails techniques (infrastructure, API, base de données).
+    \item[Save-First Pattern] : Stratégie de persistance consistant à enregistrer l'état d'un échange avant d'effectuer un appel réseau pour prévenir toute perte de données.
+    \item[Provisionnement] : Processus de création, modification et suppression d'identités et d'accès dans des systèmes informatiques.
+\end{description}
+\newpage
+
+\listoffigures
+\addcontentsline{toc}{chapter}{\listfigurename}
+\newpage
+
+\listoftables
+\addcontentsline{toc}{chapter}{\listtablename}
+\newpage
+
+\tableofcontents
+\newpage

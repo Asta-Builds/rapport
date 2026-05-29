@@ -1,0 +1,15 @@
+\chapter*{Conclusion Générale et Perspectives}
+\addcontentsline{toc}{chapter}{Conclusion Générale et Perspectives}
+
+Ce projet a permis de concevoir et de réaliser le \textbf{Provisioning Hub}, une plateforme déclarative visant à moderniser la synchronisation des données RH vers divers systèmes cibles. En remplaçant un écosystème legacy fragmenté et rigide par une architecture orientée événements et un pipeline configurable, nous avons réussi à transformer un processus lourd et opaque en un flux agile, transparent et hautement résilient.
+
+Le bilan technique et fonctionnel démontre que les objectifs ont été pleinement atteints. L'introduction du paradigme déclaratif a permis de réduire drastiquement le \textit{Time-to-Integration}, libérant les équipes de développement des tâches répétitives de configuration. L'implémentation de l'architecture hexagonale et du moteur de règles SpEL offre une flexibilité sans précédent, permettant l'adaptation du système aux évolutions métier en temps réel. Enfin, la mise en place du pattern \textit{Save-First} et de la vue \textit{Hub 360} a résolu le problème historique de la traçabilité, offrant une source unique de vérité pour l'audit et le diagnostic.
+
+Cependant, tout système logiciel est évolutif. Ce travail ouvre la voie à plusieurs perspectives d'amélioration pour une version 2 :
+\begin{itemize}
+    \item \textbf{Conformité RGPD et Gouvernance des Données :} Intégration native du droit à l'oubli et mise en œuvre de mécanismes d'export automatique des données pour répondre aux exigences réglementaires européennes.
+    \item \textbf{Transformations Avancées via JS Sandboxing :} Pour dépasser les limites de SpEL, l'intégration d'un moteur JavaScript isolé (sandbox) permettrait de réaliser des transformations de données extrêmement complexes tout en garantissant la sécurité du serveur.
+    \item \textbf{Scalabilité Massive :} Optimisation du système pour supporter un volume dépassant les 165 000 enregistrements avec un temps de traitement minimal, notamment via l'implémentation du partitionnement de données (sharding) au niveau de la base de données.
+\end{itemize}
+
+En conclusion, le Provisioning Hub ne se limite pas à une simple amélioration technique, mais représente un véritable changement de paradigme dans la gestion du provisionnement RH. En alliant rigueur architecturale et flexibilité fonctionnelle, nous avons construit un outil capable de soutenir la croissance et la transformation digitale de l'organisation.

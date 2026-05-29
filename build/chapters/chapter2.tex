@@ -1,0 +1,430 @@
+\chapter{Conception et Architecture du Système}
+\label{chap:conception}
+
+Ce chapitre présente la stratégie de conception globale et l'architecture détaillée adoptées pour le développement du Provisioning Hub (ProvisionHub). Nous y exposerons les choix structurants visant à assurer le découplage, la résilience, la sécurité et la performance du système, à travers une analyse approfondie des composants backend (Spring Boot), frontend (Angular) et de l'infrastructure de persistance et de messagerie.
+
+\section{Introduction et Architecture Générale}
+Le Provisioning Hub est conçu comme un middleware d'orchestration pour la gestion des identités et des accès (IAM). Son rôle principal est d'automatiser et de sécuriser le cycle de vie applicatif de plus de 40~000 collaborateurs au sein de l'organisation. Pour ce faire, il s'interface avec un ensemble hétérogène de référentiels sources et de systèmes cibles techniques.
+
+L'architecture globale repose sur un paradigme hybride combinant :
+\begin{itemize}
+    \item \textbf{Une architecture en couches traditionnelle :} Assurant une séparation claire des responsabilités entre la présentation, l'exposition des APIs, la logique métier et la persistance.
+    \item \textbf{Un découplage orienté événements (Event-Driven) :} S'appuyant sur le broker RabbitMQ pour orchestrer les traitements asynchrones et résilients.
+    \item \textbf{Une architecture de connecteurs extensible (Plugin Architecture) :} Permettant d'interchanger et d'ajouter dynamiquement des modules de livraison cibles.
+    \item \textbf{Un modèle CQRS (Command Query Responsibility Segregation) simplifié :} La gestion du planning des collaborateurs est déléguée en lecture temps réel au microservice distant \texttt{ms-planning-reader} (port 8082) via REST, ce qui évite la duplication locale d'une base de données de plannings volumineuse, tout en maintenant les écritures et l'agrégation dans le cœur du Provisioning Hub pour la vue consolidée à 360 degrés.
+\end{itemize}
+
+Le schéma d'architecture globale est représenté dans la Figure~\ref{fig:architecture_globale}.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.2cm and 1.8cm,
+        block/.style={draw, fill=blue!10, rectangle, minimum height=0.8cm, minimum width=2.8cm, align=center, rounded corners, drop shadow, font=\small},
+        database/.style={draw, cylinder, fill=gray!20, minimum height=1.0cm, minimum width=1.6cm, shape border rotate=90, align=center, drop shadow, font=\small},
+        arrow/.style={->, >=Stealth, thick, line width=1.2pt}
+    ]
+        % Nodes
+        \node[block, fill=blue!15] (angular) {Interface Admin\\(Angular SPA)};
+        \node[block, below=of angular, fill=orange!15] (backend) {Backend API Core\\(Spring Boot)};
+        \node[database, below=of backend, fill=yellow!15] (postgres) {Base PostgreSQL\\(PostgreSQL 17)};
+        \node[block, right=of backend, fill=red!15] (rabbitmq) {Message Bus\\(RabbitMQ)};
+        \node[block, right=of rabbitmq, fill=green!15] (connectors) {Connecteurs cibles\\(LDAP, Jira, Gmail)};
+        \node[block, right=of angular, fill=purple!15] (planning) {Planning Service\\(ms-planning-reader)};
+
+        % Connectors
+        \draw[arrow] (angular) -- node[left, font=\scriptsize] {REST API} (backend);
+        \draw[arrow] (backend) -- node[left, font=\scriptsize] {JPA / SQL} (postgres);
+        \draw[arrow] (backend) -- node[above, font=\scriptsize] {AMQP Publish} (rabbitmq);
+        \draw[arrow] (rabbitmq) -- node[above, font=\scriptsize] {Events Dispatch} (connectors);
+        \draw[arrow] (angular) -- node[above, font=\scriptsize] {REST (Port 8082)} (planning);
+        \draw[arrow, dashed] (backend) -- node[right, font=\scriptsize] {CQRS REST} (planning);
+    \end{tikzpicture}
+    \caption{Architecture globale en couches et flux de données du Provisioning Hub}
+    \label{fig:architecture_globale}
+\end{figure}
+
+\section{Stack Technologique}
+Le choix de la stack technologique répond à des contraintes industrielles de maintenabilité, d'évolutivité et de support communautaire. Les tableaux suivants résument les composants logiciels exploités.
+
+\subsection{Composants Backend}
+Le backend s'appuie sur l'écosystème Java/Spring, comme détaillé dans le Tableau~\ref{tab:stack_backend}.
+
+\begin{table}[H]
+    \centering
+    \caption{Stack technologique et versions logicielles du Backend}
+    \label{tab:stack_backend}
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Technologie} & \textbf{Version} & \textbf{Rôle et justification} \\
+        \midrule
+        Java & 21 (LTS) & Support des fonctionnalités modernes et des threads virtuels. \\
+        Spring Boot & 3.3.5 & Framework d'infrastructures et de démarrage rapide. \\
+        Spring Data JPA & Inclus & Abstraction de la couche d'accès aux données (ORM). \\
+        Spring Security & Inclus & Sécurisation stateless et gestion des politiques RBAC. \\
+        Spring AMQP & Inclus & Intégration native avec le broker RabbitMQ. \\
+        Hibernate & 6.3 & Implémentation du standard de persistance JPA. \\
+        Hypersistence Utils & 3.8.3 & Prise en charge performante du type JSONB de PostgreSQL. \\
+        Flyway & Inclus & Versioning et migration automatique du schéma relationnel. \\
+        Lombok & Inclus & Réduction du code boilerplate (générateurs automatiques). \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Composants Frontend}
+La console d'administration est développée sous forme d'application monopage (SPA) avec le framework Angular (Tableau~\ref{tab:stack_frontend}).
+
+\begin{table}[H]
+    \centering
+    \caption{Stack technologique et versions logicielles du Frontend}
+    \label{tab:stack_frontend}
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Technologie} & \textbf{Version} & \textbf{Rôle et justification} \\
+        \midrule
+        Angular & 17.3.0 & Framework de composants moderne (Standalone Components). \\
+        TypeScript & 5.4.0 & Typage statique fort pour fiabiliser la logique applicative. \\
+        RxJS & 7.8.0 & Gestion réactive des flux d'événements et requêtes HTTP. \\
+        SCSS & Natif & Préprocesseur CSS pour structurer le design system. \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Infrastructure et Déploiement}
+L'infrastructure cible repose sur des conteneurs isolés (Tableau~\ref{tab:stack_infra}).
+
+\begin{table}[H]
+    \centering
+    \caption{Composants d'infrastructure et d'orchestration}
+    \label{tab:stack_infra}
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Composant} & \textbf{Version} & \textbf{Rôle opérationnel} \\
+        \midrule
+        PostgreSQL & 17-alpine & Base de données relationnelle et transactionnelle. \\
+        RabbitMQ & 3.13-management & Gestionnaire de files d'attente et bus de messages. \\
+        Docker Compose & 3.8 & Description et orchestration locale des conteneurs. \\
+        Nginx & Alpine & Serveur web pour le frontend et reverse-proxy de routage. \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Conception Modulaire Backend (Spring Boot)}
+Le code source du backend est structuré selon une arborescence modulaire stricte afin d'isoler les responsabilités et de faciliter la maintenance évolutive.
+
+\subsection{Structure des Packages}
+Les packages principaux du projet s'organisent de la manière suivante :
+\begin{itemize}
+    \item \texttt{com.company.middleware.config} : Configuration système (JPA, DataSources multiples pour PostgreSQL et le portail HR MySQL historique, sécurité, RabbitMQ, schedulers).
+    \item \texttt{com.company.middleware.entity} : Modélisation des 37 entités JPA du système.
+    \item \texttt{com.company.middleware.repository} : Interfaces Spring Data JPA pour l'accès aux données.
+    \item \texttt{com.company.middleware.service} : Implémentations des règles métiers (gestion des employés, logs, alertes).
+    \item \texttt{com.company.middleware.controller} : Contrôleurs REST exposant les points d'entrée de l'API.
+    \item \texttt{com.company.middleware.orchestration} : Moteur d'évaluation des règles, ordonnanceur de jobs et gestionnaire de priorités.
+    \item \texttt{com.company.middleware.connector} : Définition de l'interface commune des connecteurs et implémentations physiques (LDAP, Jira, Mail).
+    \item \texttt{com.company.middleware.messaging} : Composants d'émission et de réception RabbitMQ.
+\end{itemize}
+
+\subsection{Statistiques de Code}
+Afin d'illustrer la complexité du socle applicatif du middleware, le Tableau~\ref{tab:statistiques_code} présente la répartition des classes clés.
+
+\begin{table}[H]
+    \centering
+    \caption{Volume et typologie des classes du backend Spring Boot}
+    \label{tab:statistiques_code}
+    \begin{tabular}{lc}
+        \toprule
+        \textbf{Type de composant Java} & \textbf{Nombre approximatif de classes} \\
+        \midrule
+        Entités JPA & 37 \\
+        Repositories Spring Data & 37 \\
+        Services métiers & 18 \\
+        Contrôleurs REST (dont webhooks d'intégration) & 25 \\
+        DTOs (Data Transfer Objects) & 16 \\
+        Composants de l'orchestrateur & 11 \\
+        Composants du moteur de workflows et d'échange & 11 \\
+        Connecteurs et services techniques associés & 6 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Conception du Client Frontend (Angular)}
+L'interface utilisateur du Provisioning Hub sert de console d'administration pour la configuration opérationnelle et le suivi en temps réel des transactions.
+
+\subsection{Modèle Standalone et Chargement Différé}
+Le projet Angular s'aligne sur les standards d'Angular 17 en abandonnant l'usage des modules (\texttt{NgModules}) au profit des \textit{Standalone Components}. Chaque vue ou sous-composant déclare directement ses dépendances, ce qui simplifie le graphe de compilation. 
+De plus, le routage de l'application utilise systématiquement le chargement différé (\textit{Lazy Loading}) via des promesses dynamiques d'importation. Cela garantit que seul le code requis pour la page consultée est transféré au navigateur, optimisant ainsi drastiquement les performances d'affichage et de réactivité.
+
+\subsection{Structure et Architecture de Navigation}
+L'application se découpe en trois dossiers structurants sous \texttt{src/app/} :
+\begin{itemize}
+    \item \texttt{core/} : Contient les services d'infrastructure transversaux, tels que \texttt{AuthService} (gestion des sessions RBAC), \texttt{ToastService} (notifications), et \texttt{ApiService}.
+    \item \texttt{shared/} : Regroupe les composants réutilisables à travers l'application (modales, badges de statuts, barres de pagination).
+    \item \texttt{pages/} : Implémente l'ensemble des 21 écrans fonctionnels (dashboard, profils des employés, édition de politiques IAM, monitoring de la DLQ, logs d'échanges).
+\end{itemize}
+
+\subsection{Centralisation des Échanges HTTP}
+Pour interagir avec le backend, le frontend s'appuie sur le patron de conception Facade à travers la classe \texttt{ApiService}. Ce service encapsule l'ensemble des requêtes REST (plus de 80 méthodes de requêtes typées) en masquant la manipulation des en-têtes d'authentification et les transformations RxJS sous-jacentes.
+
+\section{Modélisation et Persistance des Données (PostgreSQL 17)}
+La modélisation des données a été pensée pour répondre à deux exigences majeures : la traçabilité absolue de chaque décision d'accès et le support d'importants volumes d'échanges quotidiens.
+
+\subsection{Entités Principales et Relations}
+Le schéma relationnel est centré autour de l'entité \texttt{Employee}. Un employé possède un état cible (\texttt{EmployeeTargetState}) calculé pour chaque connecteur, un historique de modifications (\texttt{EmployeeHistory}), et peut posséder des enregistrements d'événements à 360 degrés (congés, plannings, logs SSO). 
+Par ailleurs, l'exécution d'un changement déclenche un \texttt{Job} composé de plusieurs \texttt{JobStep} (étapes unitaires idempotentes) pouvant générer des erreurs collectées dans la table \texttt{DeadLetter}. Enfin, les politiques de provisioning (\texttt{Policy}) sont rattachées aux connecteurs.
+
+\subsection{Optimisations Avancées de PostgreSQL 17}
+Pour maintenir des temps de réponse faibles malgré l'accumulation des logs de synchronisation, plusieurs techniques avancées sont configurées en base de données :
+\begin{itemize}
+    \item \textbf{Partitionnement horizontal (Table Partitioning) :} Afin d'éviter la dégradation des index sur les tables à forte croissance, six tables clés sont partitionnées par plage de dates (\texttt{PARTITION BY RANGE}) sur les années civiles : \texttt{employee\_history}, \texttt{job}, \texttt{step\_log}, \texttt{decision\_audit}, \texttt{state\_history} et \texttt{admin\_audit}.
+    \item \textbf{Champs extensibles JSONB et index GIN :} Pour permettre aux administrateurs d'intégrer de nouveaux champs collaborateurs sans altérer le schéma SQL, l'entité \texttt{Employee} dispose d'une colonne JSONB nommée \texttt{attrs}. L'accès à ces attributs dynamiques est optimisé par la création d'index GIN (\textit{Generalized Inverted Index}) s'appuyant sur l'extension \texttt{pg\_trgm}.
+    \item \textbf{Garantie d'idempotence :} Pour éviter les exécutions multiples d'un même ordre de provisionnement en cas de perturbation réseau, un index d'unicité est positionné sur la colonne \texttt{idempotency\_key} de la table \texttt{job\_step}.
+    \item \textbf{Vues de supervision opérationnelle :} Plusieurs requêtes d'agrégation complexes sont encapsulées dans des vues SQL natives (\texttt{v\_backlog}, \texttt{v\_dlq\_open}, \texttt{v\_drift\_open}) afin de simplifier les requêtes du dashboard.
+\end{itemize}
+
+\section{Conception des APIs REST}
+L'exposition des fonctionnalités du Provisioning Hub s'effectue au moyen d'APIs REST normalisées.
+
+\subsection{Conventions de Conception}
+\begin{itemize}
+    \item \textbf{Versioning de l'API :} Les routes métiers de base sont préfixées par \texttt{/api/v1/}, tandis que les routes associées au nouveau moteur d'ingestion dynamique (Extract-Load-Transform) sont exposées sous \texttt{/api/v2/sources} et \texttt{/api/v2/destinations}.
+    \item \textbf{Stateless et Pagination :} Les requêtes de lecture retournent des enveloppes paginées standardisées basées sur le modèle \texttt{PageResponse<T>} de Spring Data, évitant ainsi le transfert inutile de collections massives.
+    \item \textbf{Traitement synchrone et asynchrone :} Les actions de mise à jour de configuration s'exécutent de façon synchrone. En revanche, le déclenchement d'un provisionnement renvoie immédiatement un statut \texttt{202 Accepted} contenant l'identifiant du job, dont l'exécution se poursuit de manière asynchrone en tâche de fond.
+\end{itemize}
+
+\subsection{Catalogue des Endpoints Clés}
+Le Tableau~\ref{tab:catalogue_endpoints} liste les points d'accès critiques de l'API REST du Provisioning Hub.
+
+\begin{table}[H]
+    \centering
+    \caption{Endpoints clés de l'API REST}
+    \label{tab:catalogue_endpoints}
+    \begin{tabular}{lcl}
+        \toprule
+        \textbf{Route} & \textbf{Méthode} & \textbf{Rôle fonctionnel} \\
+        \midrule
+        \texttt{/api/v1/employees} & GET & Recherche paginée de collaborateurs. \\
+        \texttt{/api/v1/employees/\{id\}/360} & GET & Consolidation de la vue 360 degrés. \\
+        \texttt{/api/v1/connectors/\{key\}/health} & GET & Diagnostic de santé d'un système cible. \\
+        \texttt{/api/v1/policies} & POST & Enregistrement d'une nouvelle règle IAM. \\
+        \texttt{/api/v1/jobs/backfill} & POST & Lancement d'une synchronisation de masse. \\
+        \texttt{/api/v1/dlq/\{id\}/retry} & POST & Rejeu d'un message en erreur depuis la DLQ. \\
+        \texttt{/api/v2/sources/\{key\}/trigger} & POST & Lancement manuel de l'ingestion ETL. \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Moteur de Politiques IAM (Policy Engine)}
+Le moteur de politiques est le cœur logique qui détermine le droit d'accès et le formatage des comptes des collaborateurs sur chaque système cible.
+
+\subsection{Évaluation Dynamique avec SpEL}
+Pour éviter de coder les règles métier en dur dans l'application, le Provisioning Hub intègre le moteur Spring Expression Language (SpEL). Les expressions sont stockées sous forme de chaînes de caractères en base de données et évaluées au runtime contre l'objet \texttt{Employee} en cours de traitement. 
+Ainsi, une expression telle que \texttt{employee.status == 'ACTIVE' \&\& employee.country == 'FR'} sera évaluée à \texttt{true} ou \texttt{false} de manière dynamique, modifiant instantanément le droit d'accès de l'utilisateur sans requérir de redémarrage de l'application.
+
+\subsection{Règles Logiques JSON et Évaluateurs Spécialisés}
+En complément de SpEL, le moteur gère des arbres de conditions logiques au format JSON, supportant les opérateurs logiques complexes (groupements \texttt{all} pour AND, et \texttt{any} pour OR) associés à des comparateurs typés (\texttt{EQUALS}, \texttt{CONTAINS}, \texttt{REGEX}, \texttt{BEFORE}, etc.). 
+Pour les cas d'évaluation trop complexes ou nécessitant des requêtes réseau, l'interface \texttt{CustomPolicyEvaluator} permet de développer des classes spécifiques (comme \texttt{LdapCustomPolicyEvaluator}) qui sont résolues dynamiquement grâce à un registre d'évaluateurs (\texttt{CustomPolicyEvaluatorRegistry}).
+
+L'algorithme de décision d'évaluation des règles est représenté dans la Figure~\ref{fig:algorithme_policy}.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.2cm and 1.5cm,
+        decision/.style={draw, fill=yellow!10, diamond, aspect=1.8, minimum width=2.5cm, align=center, font=\scriptsize},
+        block/.style={draw, fill=blue!10, rectangle, minimum height=0.8cm, minimum width=2.8cm, align=center, rounded corners, drop shadow, font=\small},
+        arrow/.style={->, >=Stealth, thick, line width=1.2pt}
+    ]
+        % Nodes
+        \node[block] (start) {Évaluation Collaborateur\\(Connector)};
+        \node[block, below=of start] (load) {Charger règles actives\\par priorité};
+        \node[decision, below=of load] (check_custom) {Évaluateur\\Spécialisé ?};
+        \node[block, right=of check_custom, xshift=1cm] (exec_custom) {Exécuter\\Java Custom Evaluator};
+        \node[block, below=of check_custom] (exec_spel) {Évaluer expressions\\SpEL / Conditions JSON};
+        \node[decision, below=of exec_spel] (match) {Condition\\validée ?};
+        \node[block, below=of match] (apply) {Appliquer Action\\(ALLOW / BLOCK / SKIP)};
+        \node[block, left=of match, xshift=-1cm] (next) {Passer à la\\règle suivante};
+
+        % Connectors
+        \draw[arrow] (start) -- (load);
+        \draw[arrow] (load) -- (check_custom);
+        \draw[arrow] (check_custom) -- node[above, font=\scriptsize] {Oui} (exec_custom);
+        \draw[arrow] (check_custom) -- node[right, font=\scriptsize] {Non} (exec_spel);
+        \draw[arrow] (exec_custom.south) |- (match.east);
+        \draw[arrow] (exec_spel) -- (match);
+        \draw[arrow] (match) -- node[right, font=\scriptsize] {Oui} (apply);
+        \draw[arrow] (match) -- node[above, font=\scriptsize] {Non} (next);
+        \draw[arrow] (next) |- (load.west);
+    \end{tikzpicture}
+    \caption{Algorithme de décision du moteur d'évaluation des politiques IAM}
+    \label{fig:algorithme_policy}
+\end{figure}
+
+\section{Architecture Event-Driven (RabbitMQ)}
+L'orchestration asynchrone du provisionnement repose sur un réseau de files d'attente configuré au sein du broker de messages RabbitMQ.
+
+\subsection{Topologie de Messagerie}
+Le système configure un Topic Exchange principal nommé \texttt{provisionhub.exchange}. Les événements relatifs aux collaborateurs (créations, mutations, départs) y sont publiés avec des clés de routage structurées, par exemple \texttt{employee.event.created} ou \texttt{employee.assignment.changed}. 
+Grâce à ce mécanisme, plusieurs files d'attente s'abonnent à des sous-ensembles d'événements à l'aide de wildcards (\texttt{employee.\#}), assurant un routage sélectif et parallèle des messages vers les différents sous-systèmes d'intégration.
+
+\subsection{Haute Fiabilité et Mécanisme de DLQ}
+Afin de prévenir toute perte d'événements en cas d'indisponibilité d'un système cible ou du backend, les règles suivantes sont appliquées au niveau de RabbitMQ :
+\begin{itemize}
+    \item \textbf{Durabilité :} L'exchange et l'ensemble des files d'attente sont configurés comme \texttt{durable}, ce qui signifie qu'ils sont persistés sur disque et résistent à un redémarrage du broker.
+    \item \textbf{Publisher Confirms :} Le backend attend un accusé de réception de RabbitMQ avant de considérer un événement comme transmis.
+    \item \textbf{Dead Letter Queues (DLQ) :} Chaque file d'attente principale est associée à une file de rejet (\texttt{Dead Letter Queue}). En cas d'erreur de traitement persistante sur un message (après épuisement des tentatives de rejeu avec délai exponentiel), RabbitMQ déplace automatiquement le message dans la DLQ correspondante. Ces anomalies sont historisées dans la table \texttt{DeadLetter} et exposées dans l'UI pour rejeu ou suppression par un administrateur.
+\end{itemize}
+
+Le flux de routage des événements et de traitement des rejets est schématisé dans la Figure~\ref{fig:flux_rabbitmq}.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.1cm and 1.6cm,
+        block/.style={draw, fill=blue!10, rectangle, minimum height=0.8cm, minimum width=2.8cm, align=center, rounded corners, drop shadow, font=\small},
+        queue/.style={draw, fill=yellow!15, rectangle, minimum height=0.8cm, minimum width=2.6cm, align=center, drop shadow, font=\small},
+        arrow/.style={->, >=Stealth, thick, line width=1.2pt}
+    ]
+        % Nodes
+        \node[block] (pub) {Producteur d'événements\\(HubEventPublisher)};
+        \node[block, right=of pub, fill=orange!15] (exch) {Topic Exchange\\(provisionhub.exchange)};
+        \node[queue, below=of exch] (q_main) {File Principale\\(employee-events)};
+        \node[block, left=of q_main] (listener) {Consommateur\\(RabbitMQEventListener)};
+        \node[queue, below=of q_main, fill=red!10] (q_dlq) {Dead Letter Queue\\(employee-events.dlq)};
+        \node[block, left=of q_dlq, fill=green!15] (dlq_service) {Console DLQ\\(Rejeu manuel / Diagnostic)};
+
+        % Connectors
+        \draw[arrow] (pub) -- node[above, font=\scriptsize] {Publish} (exch);
+        \draw[arrow] (exch) -- node[right, font=\scriptsize] {routing: employee.\#} (q_main);
+        \draw[arrow] (q_main) -- node[above, font=\scriptsize] {Consume} (listener);
+        \draw[arrow] (listener) -- node[left, font=\scriptsize] {Erreur persistante} (q_dlq);
+        \draw[arrow] (q_dlq) -- node[above, font=\scriptsize] {Inspecter} (dlq_service);
+        \draw[arrow, dashed] (dlq_service) -- node[left, font=\scriptsize] {Rejeu} (exch);
+    \end{tikzpicture}
+    \caption{Topologie de routage des messages et cycle de vie des erreurs dans RabbitMQ}
+    \label{fig:flux_rabbitmq}
+\end{figure}
+
+\section{Système de Connecteurs (Plugin Architecture)}
+Le provisionnement effectif vers les systèmes d'information cibles s'effectue via des modules spécialisés appelés connecteurs.
+
+\subsection{Contrat d'Interface et Strategy Pattern}
+Pour éviter le couplage fort entre le moteur de règles et la tuyauterie technique propre à chaque destination, nous avons implémenté le patron de conception Strategy. Chaque type d'intégration implémente l'interface commune \texttt{ConnectorPlugin}. Celle-ci définit un ensemble d'opérations normalisées :
+\begin{itemize}
+    \item \texttt{testConnection()} : Vérification de la disponibilité du système distant.
+    \item \texttt{createUser()} / \texttt{updateUser()} : Manipulation des fiches utilisateurs.
+    \item \texttt{disableUser()} / \texttt{deleteUser()} : Actions de désactivation temporaire ou de déprovisionnement.
+    \item \texttt{readUser()} / \texttt{getUserGroups()} : Lecture de l'état distant pour la détection de dérive (\textit{Drift Detection}).
+\end{itemize}
+
+\subsection{Auto-Découverte via le ConnectorRegistry}
+L'ajout d'un nouveau connecteur s'effectue par simple injection de sa classe implémentant \texttt{ConnectorPlugin} dans le conteneur Spring. Au démarrage de l'application, la classe \texttt{ConnectorRegistry} scanne automatiquement le contexte d'application grâce à la méthode d'initialisation \texttt{@PostConstruct}. Les plug-ins détectés sont référencés dans une map interne indexée par leur type de protocole (ex : \texttt{LDAP}, \texttt{REST\_API}). Le système peut ainsi instancier et appeler dynamiquement le bon connecteur lors du traitement d'une étape de job.
+
+\section{Sécurité et Contrôle d'Accès (RBAC)}
+En manipulant des données d'identités critiques et des secrets de connexion, le Provisioning Hub applique des règles strictes de sécurité.
+
+\subsection{Sécurité Backend}
+Le framework Spring Security gère la protection du backend :
+\begin{itemize}
+    \item \textbf{Authentification Stateless :} Aucun état de session n'est maintenu sur le serveur. Chaque requête HTTP doit porter un jeton d'authentification valide.
+    \item \textbf{Protection CSRF et CORS :} La protection CSRF est désactivée car l'API est sans état. Les règles CORS (\textit{Cross-Origin Resource Sharing}) sont configurées pour n'autoriser les appels que depuis le domaine légitime hébergeant la console d'administration Angular.
+\end{itemize}
+
+\subsection{Modèle RBAC Frontend}
+Le contrôle d'accès basé sur les rôles (RBAC) est géré côté frontend pour restreindre l'affichage et l'interaction avec les fonctionnalités selon le profil de l'utilisateur connecté. Quatre rôles hiérarchiques sont configurés :
+\begin{enumerate}
+    \item \textbf{SUPER\_ADMIN :} Accès complet à l'ensemble du système, y compris la configuration de la sécurité et la rotation des secrets.
+    \item \textbf{OPERATOR :} Rôle de supervision opérationnelle. Il possède les droits d'administration des employés, de rejeu de la DLQ, de gestion des connecteurs et de configuration des sources.
+    \item \textbf{AUDITOR :} Rôle d'inspection. Il peut visualiser le dashboard, la timeline des employés, les alertes de dérives et générer des rapports d'audit.
+    \item \textbf{VIEWER :} Profil en lecture seule. Il peut uniquement consulter le dashboard et la fiche de synthèse des collaborateurs.
+\end{enumerate}
+
+Le flux de navigation du frontend est protégé par des gardes d'activation de routes (\texttt{AuthGuard}) qui interceptent les transitions et vérifient les permissions associées au rôle stocké de manière sécurisée en session.
+
+\section{Déploiement et Architecture Conteneurisée (Docker)}
+Pour simplifier l'exploitation et assurer l'isolation des différents modules techniques, l'application est packagée sous forme de microservices conteneurisés configurés via Docker Compose.
+
+Le réseau virtuel \texttt{provisionhub-network} isole la stack logicielle. Les appels externes sont filtrés et routés par Nginx. Les conteneurs du cœur applicatif (\texttt{ProvisionHub} et \texttt{ms-hr-collector}) communiquent en interne avec PostgreSQL et RabbitMQ sans exposer leurs ports sur le réseau public. De même, les microservices des connecteurs cibles s'exécutent dans des conteneurs dédiés, ce qui permet de faire évoluer ou de redémarrer un connecteur spécifique (ex : \texttt{ms-connector-jira}) sans impacter le fonctionnement général de la plateforme.
+
+La topologie du réseau et du déploiement Docker Compose est illustrée dans la Figure~\ref{fig:docker_network}.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.1cm and 1.3cm,
+        container/.style={draw, fill=blue!10, rectangle, minimum height=0.7cm, minimum width=2.4cm, align=center, rounded corners, drop shadow, font=\scriptsize},
+        boundary/.style={draw, dashed, inner sep=0.4cm, label={[anchor=south, font=\small]north:Réseau Bridge : provisionhub-network}},
+        arrow/.style={->, >=Stealth, thick, line width=1.0pt}
+    ]
+        % Docker network boundaries
+        \begin{scope}
+            \node[container, fill=orange!15] (core) {ProvisionHub\\(Core Engine)};
+            \node[container, below=of core, fill=yellow!15] (db) {PostgreSQL 17};
+            \node[container, right=of core, fill=red!15] (mq) {RabbitMQ};
+            \node[container, left=of core, fill=purple!15] (coll) {ms-hr-collector};
+            \node[container, below=of mq, fill=green!15] (conn1) {ms-connector-ldap};
+            \node[container, right=of mq, fill=green!15] (conn2) {ms-connector-jira};
+        \end{scope}
+
+        % Grouping into a dotted box representing the docker network
+        \node[boundary, fit=(core) (db) (mq) (coll) (conn1) (conn2)] (network) {};
+
+        % External nodes outside the docker network
+        \node[container, above=of core, fill=blue!15, yshift=0.5cm] (nginx) {Reverse Proxy\\(Nginx / Static UI)};
+
+        % Connections
+        \draw[arrow] (nginx) -- node[right, font=\tiny] {Port 8080} (core);
+        \draw[arrow] (core) -- (db);
+        \draw[arrow] (core) -- (mq);
+        \draw[arrow] (coll) -- (mq);
+        \draw[arrow] (mq) -- (conn1);
+        \draw[arrow] (mq) -- (conn2);
+    \end{tikzpicture}
+    \caption{Réseau virtuel Docker Compose et isolation des microservices applicatifs}
+    \label{fig:docker_network}
+\end{figure}
+
+\section{Patrons de Conception (Design Patterns) Appliqués}
+Le Provisioning Hub fait un usage intensif de patrons de conception éprouvés pour résoudre des problématiques d'architecture logicielle récurrentes.
+
+\subsection{Patrons Architecturaux}
+\begin{itemize}
+    \item \textbf{Layered Architecture (Architecture en couches) :} Découpage horizontal en Contrôleurs $\rightarrow$ Services $\rightarrow$ Repositories.
+    \item \textbf{Event-Driven Architecture (EDA) :} Communication par messages asynchrones via RabbitMQ pour découpler la détection du changement et le provisionnement.
+    \item \textbf{CQRS (Command Query Responsibility Segregation) simplifié :} Séparation logique des flux de mise à jour et d'extraction de données (notamment pour les plannings du module 360°).
+\end{itemize}
+
+\subsection{Patrons de Conception GoF (Gang of Four)}
+\begin{itemize}
+    \item \textbf{Strategy Pattern :} Implémenté pour les connecteurs cibles via l'interface commune \texttt{ConnectorPlugin}, permettant de rendre interchangeable la logique d'appel technique.
+    \item \textbf{Registry Pattern :} Encapsulé dans \texttt{ConnectorRegistry} et \texttt{CustomPolicyEvaluatorRegistry} pour maintenir la liste des services disponibles découverts par réflexion.
+    \item \textbf{Observer Pattern :} Matérialisé par \texttt{RabbitMQEventListener} qui écoute de façon non bloquante l'apparition d'événements sur le bus RabbitMQ.
+    \item \textbf{Template Method Pattern :} Configuré dans la classe d'ordonnancement \texttt{JobProcessor.processNextBatch()} qui déroule un squelette d'exécution fixe (extraction, verrouillage pessimiste, boucle d'évaluation, journalisation) tout en déléguant la logique de mapping à des sous-composants.
+    \item \textbf{Builder Pattern :} Appliqué sur l'intégralité des DTOs et entités d'échange via l'annotation \texttt{@Builder} de Lombok afin de fiabiliser la construction des payloads d'API.
+\end{itemize}
+
+\subsection{Patrons de Résilience et d'Infrastructure}
+\begin{itemize}
+    \item \textbf{Dead Letter Queue (DLQ) :} Routage automatique des messages en échec persistant pour éviter de bloquer la file principale et permettre un audit.
+    \item \textbf{Retry with Exponential Backoff (Reprise avec délai exponentiel) :} Algorithme géré par le \texttt{RetryManager} pour espacer progressivement les tentatives d'appels vers un système tiers en panne (ex : délai de 1s, 5s, 25s...).
+    \item \textbf{Pessimistic Locking (SELECT FOR UPDATE SKIP LOCKED) :} Utilisé dans la requête SQL de chargement des jobs par le \texttt{JobProcessor} pour autoriser une exécution distribuée sur plusieurs nœuds sans conflit de double traitement.
+    \item \textbf{Drift Detection (Détection de dérive) :} Script autonome du \texttt{DriftScanner} qui compare à intervalle fixe l'état théorique stocké en base de données et l'état réel lu sur la cible LDAP/Jira afin de lever des alertes d'anomalies.
+\end{itemize}
+
+\section{Spécifications des Diagrammes UML à Produire}
+Pour guider la compréhension visuelle de la modélisation et de la dynamique du système, le rapport de PFE s'appuiera sur la production des diagrammes UML détaillés ci-dessous :
+
+\begin{enumerate}
+    \item \textbf{Diagramme de Cas d'Utilisation (Use Case Diagram) :} Représentant les interactions des rôles (Super Admin, Opérateur, Auditeur) avec les fonctionnalités majeures (supervision, rejeu de DLQ, test de connexion, gestion des politiques).
+    \item \textbf{Diagramme de Classes Global (Class Diagram) :} Modélisant la structure statique des entités métiers (\texttt{Employee}, \texttt{Job}, \texttt{JobStep}, \texttt{DeadLetter}, \texttt{Policy}, \texttt{Connector}) et leurs cardinalités.
+    \item \textbf{Diagrammes de Séquence Systèmes (Sequence Diagrams) :}
+        \begin{itemize}
+            \item Le scénario de \textit{Provisioning} classique, décrivant les échanges chronologiques entre le webhook d'intégration, l'orchestrateur de jobs, le moteur de politiques et l'appel de connecteur.
+            \item Le scénario d'\textit{Agrégation 360°}, illustrant la capture d'événements (badgeuse, congés) et leur acheminement par RabbitMQ vers le service d'agrégation.
+        \end{itemize}
+    \item \textbf{Diagramme d'Activité (Activity Diagram) :} Représentant graphiquement le flux logique séquentiel d'évaluation du moteur de règles.
+    \item \textbf{Diagramme de Déploiement (Deployment Diagram) :} Cartographiant l'environnement de production composé de l'instance PostgreSQL, du broker RabbitMQ, et des conteneurs Spring Boot et Angular isolés sur le serveur d'intégration.
+\end{enumerate}
+
+\section{Conclusion}
+La conception et l'architecture du Provisioning Hub ont été structurées pour offrir une modularité et une extensibilité optimales. En dissociant les responsabilités applicatives à travers une architecture en couches, en fiabilisant les communications réseau au moyen de files d'attente asynchrones, et en adoptant une modélisation relationnelle robuste sous PostgreSQL 17, nous avons jeté les bases d'un middleware résilient et performant. Le chapitre suivant décrira l'implémentation technique et les défis de programmation relevés au cours du développement.
